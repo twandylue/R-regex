@@ -1,22 +1,22 @@
 use std::ops::Range;
 
-type FSM_INDEX = usize;
-const FSM_COL_SIZE: usize = 130;
-const FSM_NEW_LINE: usize = 129;
+type FsmIndex = usize;
+const FSM_COLUMN_SIZE: usize = 130;
+const FSM_NEWLINE: usize = 129;
 
 #[derive(Debug)]
 struct FsmColumn {
-    ts: [FSM_INDEX; FSM_COL_SIZE],
+    ts: [FsmIndex; FSM_COLUMN_SIZE],
 }
 
 impl FsmColumn {
     fn new() -> Self {
         Self {
-            ts: [0; FSM_COL_SIZE],
+            ts: [0; FSM_COLUMN_SIZE],
         }
     }
 
-    fn fill_range(&mut self, range: Range<char>, state: FSM_INDEX) {
+    fn fill_range(&mut self, range: Range<char>, state: FsmIndex) {
         for c in range {
             self.ts[c as usize] = state;
         }
@@ -40,7 +40,7 @@ impl FSM {
     }
 
     fn dump(&self) {
-        for symbol in 0..FSM_COL_SIZE {
+        for symbol in 0..FSM_COLUMN_SIZE {
             print!("{:03} => ", symbol);
             for column in &self.cols {
                 print!("{v} ", v = column.ts[symbol]);
@@ -56,28 +56,10 @@ fn main() {
     // NOTE: Failed state
     fsm.push(FsmColumn::new());
 
-    {
+    let events = vec!['a' as usize, 'b' as usize, 'c' as usize, FSM_NEWLINE];
+    for event in events {
         let mut col = FsmColumn::new();
-        // NOTE: 'a' is an event
-        col.ts['a' as usize] = fsm.cols.len() + 1;
-        fsm.push(col);
-    }
-
-    {
-        let mut col = FsmColumn::new();
-        col.ts['b' as usize] = fsm.cols.len() + 1;
-        fsm.push(col);
-    }
-
-    {
-        let mut col = FsmColumn::new();
-        col.ts['c' as usize] = fsm.cols.len() + 1;
-        fsm.push(col);
-    }
-
-    {
-        let mut col = FsmColumn::new();
-        col.ts[FSM_NEW_LINE] = fsm.cols.len() + 1;
+        col.ts[event] = fsm.cols.len() + 1;
         fsm.push(col);
     }
 

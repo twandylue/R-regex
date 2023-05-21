@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 type FsmIndex = usize;
+
 const FSM_COLUMN_SIZE: usize = 130;
 const FSM_NEWLINE: usize = 129;
 
@@ -48,6 +49,26 @@ impl FSM {
             println!();
         }
     }
+
+    fn is_match(&self, input: &str) -> bool {
+        let mut state = 1;
+        for c in input.chars() {
+            if state == 0 || state >= self.cols.len() {
+                break;
+            }
+            state = self.cols[state].ts[c as usize];
+        }
+
+        if state == 0 {
+            return false;
+        }
+
+        if state < self.cols.len() {
+            state = self.cols[state].ts[FSM_NEWLINE];
+        }
+
+        return state >= self.cols.len();
+    }
 }
 
 fn main() {
@@ -63,5 +84,11 @@ fn main() {
         fsm.push(col);
     }
 
-    fsm.dump();
+    // fsm.dump();
+
+    let input = vec!["Hello", "abc"];
+    for i in input {
+        let result = fsm.is_match(i);
+        println!("{:?} => {:?}", i, result);
+    }
 }

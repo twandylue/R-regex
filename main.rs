@@ -25,19 +25,28 @@ impl FsmColumn {
 }
 
 #[derive(Debug)]
-struct FSM {
+struct Regex {
     cols: Vec<FsmColumn>,
 }
 
-impl FSM {
-    fn new() -> Self {
-        Self {
-            cols: Vec::<FsmColumn>::new(),
-        }
-    }
+impl Regex {
+    fn compile(src: &str) -> Self {
+        let mut fsm = Regex { cols: Vec::new() };
 
-    fn push(&mut self, column: FsmColumn) {
-        self.cols.push(column);
+        // NOTE: Initial state: 1(fsm.cols.len() = 1)
+        fsm.cols.push(FsmColumn::new());
+
+        for c in src.chars() {
+            let mut col = FsmColumn::new();
+
+            match c {
+                '$' => col.ts[FSM_NEWLINE] = fsm.cols.len() + 1,
+                _ => col.ts[c as usize] = fsm.cols.len() + 1,
+            }
+            fsm.cols.push(col);
+        }
+
+        fsm
     }
 
     fn dump(&self) {
@@ -50,7 +59,10 @@ impl FSM {
         }
     }
 
-    fn is_match(&self, input: &str) -> bool {
+    fn match_str(&self, input: &str) -> bool {
+        // NOTE:
+        // Failed state: 0
+        // Initial state: 1
         let mut state = 1;
         for c in input.chars() {
             if state == 0 || state >= self.cols.len() {
@@ -63,6 +75,7 @@ impl FSM {
             return false;
         }
 
+        // NOTE: new line is not a character, it is end of line.
         if state < self.cols.len() {
             state = self.cols[state].ts[FSM_NEWLINE];
         }
@@ -72,23 +85,14 @@ impl FSM {
 }
 
 fn main() {
-    let mut fsm = FSM::new();
+    let regex = Regex::compile("abcdefghijk$");
 
-    // NOTE: Failed state
-    fsm.push(FsmColumn::new());
+    regex.dump();
+    println!("------------------------");
 
-    let events = vec!['a' as usize, 'b' as usize, 'c' as usize, FSM_NEWLINE];
-    for event in events {
-        let mut col = FsmColumn::new();
-        col.ts[event] = fsm.cols.len() + 1;
-        fsm.push(col);
-    }
-
-    // fsm.dump();
-
-    let input = vec!["Hello", "abc"];
-    for i in input {
-        let result = fsm.is_match(i);
-        println!("{:?} => {:?}", i, result);
+    let inputs = vec!["Hello", "abc", "abcde", "abcdefghijk"];
+    for input in inputs {
+        let result = regex.match_str(input);
+        println!("{:?} => {:?}", input, result);
     }
 }

@@ -1,9 +1,7 @@
-use std::ops::Range;
-
 type FsmIndex = usize;
 
 const FSM_COLUMN_SIZE: usize = 130;
-const FSM_NEWLINE: usize = 129;
+const FSM_ENDLINE: usize = 129;
 
 #[derive(Debug)]
 struct FsmColumn {
@@ -14,12 +12,6 @@ impl FsmColumn {
     fn new() -> Self {
         Self {
             ts: [0; FSM_COLUMN_SIZE],
-        }
-    }
-
-    fn fill_range(&mut self, range: Range<char>, state: FsmIndex) {
-        for c in range {
-            self.ts[c as usize] = state;
         }
     }
 }
@@ -40,7 +32,12 @@ impl Regex {
             let mut col = FsmColumn::new();
 
             match c {
-                '$' => col.ts[FSM_NEWLINE] = fsm.cols.len() + 1,
+                '$' => col.ts[FSM_ENDLINE] = fsm.cols.len() + 1,
+                '.' => {
+                    for i in 33..127 {
+                        col.ts[i] = fsm.cols.len() + 1;
+                    }
+                }
                 _ => col.ts[c as usize] = fsm.cols.len() + 1,
             }
             fsm.cols.push(col);
@@ -77,7 +74,7 @@ impl Regex {
 
         // NOTE: new line is not a character, it is end of line.
         if state < self.cols.len() {
-            state = self.cols[state].ts[FSM_NEWLINE];
+            state = self.cols[state].ts[FSM_ENDLINE];
         }
 
         return state >= self.cols.len();
@@ -85,12 +82,14 @@ impl Regex {
 }
 
 fn main() {
-    let regex = Regex::compile("abcdefghijk$");
+    let pattern = ".bc";
+    let regex = Regex::compile(pattern);
 
     regex.dump();
     println!("------------------------");
+    println!("Regex: '{pattern}'");
 
-    let inputs = vec!["Hello", "abc", "abcde", "abcdefghijk"];
+    let inputs = vec!["Hello", "abc", "abcde", "bca"];
     for input in inputs {
         let result = regex.match_str(input);
         println!("{:?} => {:?}", input, result);

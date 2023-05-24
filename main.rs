@@ -3,15 +3,21 @@ type FsmIndex = usize;
 const FSM_COLUMN_SIZE: usize = 130;
 const FSM_ENDLINE: usize = 129;
 
+#[derive(Default, Copy, Clone, Debug)]
+struct FsmAction {
+    next: FsmIndex,
+    offset: i32,
+}
+
 #[derive(Debug)]
 struct FsmColumn {
-    ts: [FsmIndex; FSM_COLUMN_SIZE],
+    ts: [FsmAction; FSM_COLUMN_SIZE],
 }
 
 impl FsmColumn {
     fn new() -> Self {
         Self {
-            ts: [0; FSM_COLUMN_SIZE],
+            ts: [FsmAction::default(); FSM_COLUMN_SIZE],
         }
     }
 }
@@ -32,15 +38,45 @@ impl Regex {
             let mut col = FsmColumn::new();
 
             match c {
-                '$' => col.ts[FSM_ENDLINE] = fsm.cols.len() + 1,
+                '$' => {
+                    col.ts[FSM_ENDLINE] = FsmAction {
+                        next: fsm.cols.len() + 1,
+                        offset: 1,
+                    };
+                    fsm.cols.push(col);
+                }
                 '.' => {
                     for i in 33..127 {
-                        col.ts[i] = fsm.cols.len() + 1;
+                        col.ts[i] = FsmAction {
+                            next: fsm.cols.len() + 1,
+                            offset: 1,
+                        };
+                    }
+                    fsm.cols.push(col);
+                }
+                '*' => {
+                    let n = fsm.cols.len();
+                    for t in fsm.cols.last_mut().unwrap().ts.iter_mut() {
+                        // TODO:
+                        if t.next == n {
+                            println!("here");
+                            t.next = n - 1;
+                        } else if t.next == 0 {
+                            t.next = n;
+                            t.offset = 0;
+                        } else {
+                            unreachable!();
+                        }
                     }
                 }
-                _ => col.ts[c as usize] = fsm.cols.len() + 1,
+                _ => {
+                    col.ts[c as usize] = FsmAction {
+                        next: fsm.cols.len() + 1,
+                        offset: 1,
+                    };
+                    fsm.cols.push(col);
+                }
             }
-            fsm.cols.push(col);
         }
 
         fsm
@@ -50,7 +86,10 @@ impl Regex {
         for symbol in 0..FSM_COLUMN_SIZE {
             print!("{:03} => ", symbol);
             for column in &self.cols {
-                print!("{v} ", v = column.ts[symbol]);
+                print!(
+                    "({}, {}) ",
+                    column.ts[symbol].next, column.ts[symbol].offset
+                );
             }
             println!();
         }
@@ -61,20 +100,22 @@ impl Regex {
         // Failed state: 0
         // Initial state: 1
         let mut state = 1;
-        for c in input.chars() {
-            if state == 0 || state >= self.cols.len() {
-                break;
-            }
-            state = self.cols[state].ts[c as usize];
+        let mut head: usize = 0;
+        let chars = input.chars().collect::<Vec<_>>();
+
+        while 0 < state && state < self.cols.len() && head < chars.len() {
+            let action = self.cols[state].ts[chars[head] as usize];
+            state = action.next;
+            head = (head as i32 + action.offset) as usize;
         }
 
         if state == 0 {
             return false;
         }
 
-        // NOTE: new line is not a character, it is end of line.
         if state < self.cols.len() {
-            state = self.cols[state].ts[FSM_ENDLINE];
+            let action = self.cols[state].ts[FSM_ENDLINE];
+            state = action.next;
         }
 
         return state >= self.cols.len();
@@ -82,14 +123,15 @@ impl Regex {
 }
 
 fn main() {
-    let pattern = ".bc";
+    let pattern = "a*bc$";
     let regex = Regex::compile(pattern);
 
     regex.dump();
     println!("------------------------");
     println!("Regex: '{pattern}'");
 
-    let inputs = vec!["Hello", "abc", "abcde", "bca"];
+    // let inputs = vec!["Hello", "abc", "abcd", "bca"];
+    let inputs = vec!["abc"];
     for input in inputs {
         let result = regex.match_str(input);
         println!("{:?} => {:?}", input, result);

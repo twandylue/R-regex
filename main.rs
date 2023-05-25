@@ -9,7 +9,7 @@ struct FsmAction {
     offset: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct FsmColumn {
     ts: [FsmAction; FSM_COLUMN_SIZE],
 }
@@ -54,12 +54,26 @@ impl Regex {
                     }
                     fsm.cols.push(col);
                 }
+                '+' => {
+                    // NOTE: a+ => aa*
+                    let n = fsm.cols.len();
+                    fsm.cols.push(fsm.cols.last().unwrap().clone());
+                    for t in fsm.cols.last_mut().unwrap().ts.iter_mut() {
+                        if t.next == n {
+                            // NOTE:
+                        } else if t.next == 0 {
+                            t.next = n + 1;
+                            t.offset = 0;
+                        } else {
+                            unreachable!();
+                        }
+                    }
+                }
                 '*' => {
                     let n = fsm.cols.len();
                     for t in fsm.cols.last_mut().unwrap().ts.iter_mut() {
-                        // TODO:
+                        // NOTE: back to previous char
                         if t.next == n {
-                            println!("here");
                             t.next = n - 1;
                         } else if t.next == 0 {
                             t.next = n;
@@ -124,14 +138,15 @@ impl Regex {
 
 fn main() {
     let pattern = "a*bc$";
+    // BUG:
+    // let pattern = ".*bc";
     let regex = Regex::compile(pattern);
 
     regex.dump();
     println!("------------------------");
     println!("Regex: '{pattern}'");
 
-    // let inputs = vec!["Hello", "abc", "abcd", "bca"];
-    let inputs = vec!["abc"];
+    let inputs = vec!["aaaaaaaaaaaabc", "bc"];
     for input in inputs {
         let result = regex.match_str(input);
         println!("{:?} => {:?}", input, result);
